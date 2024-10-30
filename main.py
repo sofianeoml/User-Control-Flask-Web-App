@@ -3,6 +3,9 @@ from library import *
 
 app = Flask(__name__)
 
+# Replace with your MongoDB connection string
+client = pymongo.MongoClient("mongodb://localhost:27017/") 
+
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'GET':
@@ -34,7 +37,30 @@ def register():
                 error = "Password must be at least 8 characters long, contain 1 uppercase, 1 number, and 1 special character."
                 return(jsonify({'success':False,'message':error}))
             
-            return(jsonify({'success':True}))
+            # Access a database (create it if it doesn't exist)
+            db = client["user-control"]
+            
+            # Access a collection (create it if it doesn't exist)
+            users = db["users"]
+            
+            # Define the query to search for the element
+            query = {"username": str(data.get('username'))}
+
+            # Check if the element exists
+            if users.find_one(query):
+                return(jsonify({'success':False,'message':'username already taken !'})) 
+            else:
+                try:
+                    users.insert_one({
+                        'username':data.get('username'),
+                        'first_name':data.get('first_name'),
+                        'last_name':data.get('last_name'),
+                        'password':data.get('password'),
+                    })
+                    return(jsonify({'success':True}))
+                except Exception as message:
+                    return(jsonify({'success':False,'message':str(message)}))
+            
         else:
             return(jsonify({'success':False,'message':'Make sure that all Your informations are complete.'}))
             
