@@ -39,7 +39,7 @@
             <p class="d-flex d-lg-flex align-items-center justify-content-lg-center align-items-lg-center"
                 style="margin: 0px;font-weight: bold;margin-bottom: 5px;margin-left: 0px;color: #001b44;font-size: 12px;width: initial;height: 25px;">
                 ALREADY HAVE AN ACCOUNT?</p><a class="d-flex d-lg-flex align-items-center align-items-lg-center"
-                href="/login.html"
+                href="/login"
                 style="font-weight: bold;height: 25px;margin-left: 2px;text-decoration: none;font-size: 12px;width: initial;color: #0044ff;">LOGIN</a>
         </div>
         <div class="justify-content-lg-center align-items-lg-center" id="alert_box"
@@ -126,8 +126,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    showSuccess("Registration successful!");
-                    // Redirect to another page if needed
+                    showSuccess(data.message);
+                    setTimeout(() => {
+                        window.location.href = '/login'; // Redirect to /login
+                    }, 2000); // 2000 milliseconds = 2 seconds
                 } else {
                     showError(data.message);
                 }

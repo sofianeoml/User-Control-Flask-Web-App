@@ -6,6 +6,10 @@ app = Flask(__name__)
 # Replace with your MongoDB connection string
 client = pymongo.MongoClient("mongodb://localhost:27017/") 
 
+username_regex = r'^[a-z_]\w*$'
+name_regex = r'^[a-zA-Z]{1,25}$'
+password_regex = r'^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}\[\]:;"\'<>,.?/]).{8,}$'
+
 @app.route('/register', methods=['GET','POST'])
 def register():
     if request.method == 'GET':
@@ -13,9 +17,6 @@ def register():
     elif request.method == 'POST':
         data = request.get_json()
         if data.get('username') and data.get('first_name') and data.get('last_name') and data.get('password'):
-            username_regex = r'^[a-z_]\w*$'
-            name_regex = r'^[a-zA-Z]{1,25}$'
-            password_regex = r'^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}\[\]:;"\'<>,.?/]).{8,}$'
 
             # Validate username
             if not re.match(username_regex, data.get('username')) or not data.get('username')[0].isalpha():
@@ -55,15 +56,45 @@ def register():
                         'username':str(data.get('username')).lower(),
                         'first_name':data.get('first_name'),
                         'last_name':data.get('last_name'),
-                        'password':data.get('password'),
+                        'password':str(hash_password(data.get('password'))),
                     })
-                    return(jsonify({'success':True}))
+                    return(jsonify({'success':True,'message':'Registration successful!'}))
                 except Exception as message:
                     return(jsonify({'success':False,'message':str(message)}))
             
         else:
             return(jsonify({'success':False,'message':'Make sure that all Your informations are complete.'}))
             
+@app.route('/login', methods=['GET','POST'])
+def login():
+    if request.method == 'GET':
+        return render_template('login.html')
+    elif request.method == 'POST':
+        data = request.get_json()
+        if data.get('username') and data.get('password'):
+            # Access a database (create it if it doesn't exist)
+            db = client["user-control"]
+            
+            # Access a collection (create it if it doesn't exist)
+            users = db["users"]
+            
+            # Define the query to search for the element
+            query = {"username": str(data.get('username')).lower()}
+
+            user = users.find_one(query)
+            # Check if the element exists
+            if user:
+                try:
+                    if str(user.get('password')) == str(hash_password(data.get('password'))):
+                        return(jsonify({'success':True,'message':'Login Succesfully ...'}))
+                    else:
+                        return(jsonify({'success':False,'message':'username or password incorrect'}))
+                except Exception as message:
+                    return(jsonify({'success':False,'message':str(message)}))
+            else:
+                return(jsonify({'success':False,'message':'username or password incorrect'}))
+        else:
+            return(jsonify({'success':False,'message':'Make sure that all Your informations are complete.'}))
 
 @app.route('/static/css/<file>', methods=['GET'])
 def return_style(file):
