@@ -44,7 +44,7 @@ def register():
             users = db["users"]
             
             # Define the query to search for the element
-            query = {"username": str(data.get('username'))}
+            query = {"username": str(data.get('username')).lower()}
 
             # Check if the element exists
             if users.find_one(query):
@@ -52,7 +52,7 @@ def register():
             else:
                 try:
                     users.insert_one({
-                        'username':data.get('username'),
+                        'username':str(data.get('username')).lower(),
                         'first_name':data.get('first_name'),
                         'last_name':data.get('last_name'),
                         'password':data.get('password'),
