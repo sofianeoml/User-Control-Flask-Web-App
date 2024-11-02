@@ -3,12 +3,19 @@ from library import *
 
 app = Flask(__name__)
 
-# Replace with your MongoDB connection string
-client = pymongo.MongoClient("mongodb://localhost:27017/") 
+@app.route('/', methods=['GET'])
+def index():
+    session_id = request.cookies.get('session_id')
+    if session_id:
+        # Redirect to a different page (like the dashboard) if the session_id exists
+        return redirect(url_for('home'))  # Change 'dashboard' to your desired endpoint
+    else:
+        # Redirect to the login page if there is no session_id
+        return redirect(url_for('login'))
 
-username_regex = r'^[a-z_]\w*$'
-name_regex = r'^[a-zA-Z]{1,25}$'
-password_regex = r'^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+={}\[\]:;"\'<>,.?/]).{8,}$'
+@app.route('/home', methods=['GET'])
+def home():
+    return "Welcome to the Dashboard"
 
 @app.route('/register', methods=['GET','POST'])
 def register():
@@ -38,12 +45,6 @@ def register():
                 error = "Password must be at least 8 characters long, contain 1 uppercase, 1 number, and 1 special character."
                 return(jsonify({'success':False,'message':error}))
             
-            # Access a database (create it if it doesn't exist)
-            db = client["user-control"]
-            
-            # Access a collection (create it if it doesn't exist)
-            users = db["users"]
-            
             # Define the query to search for the element
             query = {"username": str(data.get('username')).lower()}
 
@@ -52,12 +53,17 @@ def register():
                 return(jsonify({'success':False,'message':'username already taken !'})) 
             else:
                 try:
-                    users.insert_one({
+                    data = {
                         'username':str(data.get('username')).lower(),
+                        'created_at':str(get_time_now_ms()),
+                        'type':'user',
+                        'is_banned':False,
                         'first_name':data.get('first_name'),
                         'last_name':data.get('last_name'),
                         'password':str(hash_password(data.get('password'))),
-                    })
+                    }
+                    data["_id"] = get_next_sequence_value("user_id")
+                    users.insert_one(data)
                     return(jsonify({'success':True,'message':'Registration successful!'}))
                 except Exception as message:
                     return(jsonify({'success':False,'message':str(message)}))
@@ -86,7 +92,40 @@ def login():
             if user:
                 try:
                     if str(user.get('password')) == str(hash_password(data.get('password'))):
-                        return(jsonify({'success':True,'message':'Login Succesfully ...'}))
+                        user_id = user.get('_id')
+                        if sessions.find_one({'user_id':user_id}):
+                            sessions.delete_many({'user_id':user_id})
+                            created_at = get_time_now_ms()
+                            expired_at = get_time_now_ms() + 86400000
+                            try:
+                                data = {
+                                    'user_id':user_id,
+                                    'created_at':created_at,
+                                    'expired_at':expired_at
+                                }
+                                data["_id"] = generate_session_id()
+                                result = sessions.insert_one(data)
+                                response = jsonify({'success':True,'message':'Login Succesfully ...'})
+                                response.set_cookie('session_id', data["_id"])  # Set the session_id in the client's cookies
+                                return response
+                            except Exception as message:
+                                return(jsonify({'success':False,'message':str(message)}))
+                        else:
+                            created_at = get_time_now_ms()
+                            expired_at = get_time_now_ms() + 86400000
+                            try:
+                                data = {
+                                    'user_id':user_id,
+                                    'created_at':created_at,
+                                    'expired_at':expired_at
+                                }
+                                data["_id"] = generate_session_id()
+                                result = sessions.insert_one(data)
+                                response = jsonify({'success':True,'message':'Login Succesfully ...'})
+                                response.set_cookie('session_id', data["_id"])  # Set the session_id in the client's cookies
+                                return response
+                            except Exception as message:
+                                return(jsonify({'success':False,'message':str(message)}))
                     else:
                         return(jsonify({'success':False,'message':'username or password incorrect'}))
                 except Exception as message:
